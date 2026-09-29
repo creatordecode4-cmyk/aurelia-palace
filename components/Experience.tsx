@@ -20,7 +20,7 @@ export default function Experience() {
     window.scrollTo(0, 0)
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
-    const instance = new Lenis({ lerp: 0.09, wheelMultiplier: 0.9 })
+    const instance = new Lenis({ lerp: 0.09, wheelMultiplier: 0.9, anchors: true })
     instance.stop()
     instance.on('scroll', ScrollTrigger.update)
     const raf = (time: number) => instance.raf(time * 1000)

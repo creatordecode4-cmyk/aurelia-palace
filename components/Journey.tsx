@@ -180,6 +180,20 @@ export default function Journey({ ready }: { ready: boolean }) {
         .to(q('[data-time]'), { autoAlpha: 1, y: 0, duration: 0.4, stagger: 0.12, ease: 'power2.out' }, 22.9)
         .to({}, { duration: 1 }) // hold before unpinning
 
+      // Hide each layer once another fully covers it, so the GPU never paints more than two photos at a time.
+      const covered: [string, number][] = [
+        ['doors', 4.9],
+        ['lobby', 7.4],
+        ['reception', 9.4],
+        ['key', 11.6],
+        ['corridor', 13.9],
+        ['door512', 15.5],
+        ['room1', 18],
+        ['room2', 20.4],
+        ['room3', 22.4],
+      ]
+      covered.forEach(([id, at]) => tl.set(layer(id), { visibility: 'hidden' }, at))
+
       const labels = SCENES.map((s) => tl.labels[s.at])
       const st = ScrollTrigger.create({
         trigger: el,
