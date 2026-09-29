@@ -23,3 +23,452 @@ body {
   -webkit-font-smoothing: antialiased;
   overflow-x: clip;
 }
+
+/* ---------- Grain ---------- */
+
+.grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 0.93 0 0 0 0 0.82 0 0 0 0.9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.07;
+}
+
+@media (min-width: 768px) and (prefers-reduced-motion: no-preference) {
+  .grain {
+    animation: grain 1s steps(6) infinite;
+  }
+}
+
+@keyframes grain {
+  0%, 100% { transform: translate(0, 0); }
+  20% { transform: translate(-4%, 3%); }
+  40% { transform: translate(3%, -5%); }
+  60% { transform: translate(-2%, 6%); }
+  80% { transform: translate(5%, -2%); }
+}
+
+/* ---------- Shared type ---------- */
+
+.eyebrow {
+  margin-bottom: 1rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.38em;
+  text-transform: uppercase;
+  color: var(--color-gold);
+}
+
+em {
+  font-style: italic;
+  color: var(--color-gold-light);
+}
+
+/* ---------- Journey (pinned stage) ---------- */
+
+.journey {
+  position: relative;
+  /* lvh keeps the pinned stage steady while mobile URL bars show/hide. */
+  height: 100lvh;
+}
+
+.stage {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+}
+
+.layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  will-change: transform, opacity;
+}
+
+.photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  user-select: none;
+  will-change: transform;
+}
+
+/* Camera targets for the macro and push-in shots. */
+.layer--key .photo {
+  transform-origin: 56% 70%;
+}
+
+.layer--corridor .photo {
+  transform-origin: 50% 58%;
+}
+
+.hero-shade {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 45%, rgb(31 5 11 / 0.55), rgb(31 5 11 / 0.1) 70%),
+    linear-gradient(to bottom, rgb(31 5 11 / 0.45), transparent 30%, transparent 65%, rgb(31 5 11 / 0.8));
+}
+
+.hero-copy {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 1rem;
+  text-align: center;
+  text-shadow: 0 6px 40px rgb(0 0 0 / 0.55);
+}
+
+.scroll-hint {
+  position: absolute;
+  /* Clear the mobile URL bar: the stage is lvh tall, the visible area may be svh. */
+  bottom: calc(100lvh - 100svh + 2rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  color: rgb(245 236 217 / 0.75);
+}
+
+.scroll-hint i {
+  position: relative;
+  width: 1px;
+  height: 3rem;
+  overflow: hidden;
+  background: rgb(245 236 217 / 0.2);
+}
+
+.scroll-hint i::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--color-gold);
+  animation: drip 2.2s ease-in-out infinite;
+}
+
+@keyframes drip {
+  from { transform: translateY(-100%); }
+  to { transform: translateY(100%); }
+}
+
+/* Doors: each half shows its own half of the same photo. */
+.door {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  overflow: hidden;
+  will-change: transform;
+}
+
+.door--left { left: 0; box-shadow: 20px 0 40px rgb(0 0 0 / 0.5); }
+.door--right { right: 0; box-shadow: -20px 0 40px rgb(0 0 0 / 0.5); }
+
+.door .photo {
+  width: 200%;
+  max-width: none;
+}
+
+.door--right .photo {
+  left: -100%;
+}
+
+.door-light {
+  position: absolute;
+  inset: 0 25%;
+  background: radial-gradient(ellipse 50% 60% at 50% 50%, rgb(255 226 150 / 0.95), rgb(230 180 80 / 0.55) 40%, transparent 75%);
+  transform: scaleX(0);
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+.plaque {
+  position: absolute;
+  top: 18%;
+  left: 50%;
+  translate: -50% 0;
+  padding: 0.3rem 1.1rem;
+  border: 1px solid var(--color-gold);
+  background: linear-gradient(180deg, #e6c97f, #a67c2e);
+  color: var(--color-maroon-deep);
+  font-family: var(--font-serif);
+  font-size: clamp(1.4rem, 3vw, 2.2rem);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  box-shadow: 0 0 30px rgb(230 190 100 / 0.6);
+}
+
+/* Captions */
+.caption {
+  position: absolute;
+  bottom: calc(100lvh - 100svh + 12vh);
+  left: clamp(1rem, 6vw, 6rem);
+  right: clamp(1rem, 6vw, 6rem);
+  max-width: 34rem;
+  text-shadow: 0 4px 30px rgb(0 0 0 / 0.7);
+}
+
+.caption--right {
+  left: auto;
+}
+
+.caption--center {
+  margin-inline: auto;
+  text-align: center;
+}
+
+.caption-text {
+  margin-top: 0.8rem;
+  font-size: clamp(0.95rem, 1.4vw, 1.1rem);
+  line-height: 1.7;
+  color: rgb(245 236 217 / 0.82);
+}
+
+.dish {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0.8rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgb(201 162 75 / 0.25);
+}
+
+.vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 45%, rgb(31 5 11 / 0.65));
+}
+
+/* Keep text readable on busy photos: darken the lower part of every captioned layer. */
+.layer:has(.caption)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgb(31 5 11 / 0.85), transparent 55%);
+  pointer-events: none;
+}
+
+.caption {
+  z-index: 2;
+}
+
+.hud {
+  position: absolute;
+  z-index: 3;
+  left: clamp(1rem, 4vw, 3rem);
+  right: clamp(1rem, 4vw, 3rem);
+  bottom: calc(100lvh - 100svh + 1.4rem);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: rgb(245 236 217 / 0.7);
+}
+
+.hud-bar {
+  flex: 1;
+  height: 1px;
+  margin-left: 1rem;
+  background: rgb(245 236 217 / 0.15);
+}
+
+.hud-bar span {
+  display: block;
+  height: 100%;
+  background: var(--color-gold);
+  transform: scaleX(0);
+  transform-origin: left;
+}
+
+@media (max-width: 767px) {
+  .caption,
+  .caption--right {
+    left: 1.25rem;
+    right: 1.25rem;
+    bottom: calc(100lvh - 100svh + 4.5rem);
+    margin-inline: auto;
+    text-align: center;
+  }
+
+  .dish {
+    justify-content: center;
+  }
+
+  .layer:has(.caption)::after {
+    background: linear-gradient(to top, rgb(31 5 11 / 0.92), rgb(31 5 11 / 0.55) 45%, transparent 80%);
+  }
+
+  .photo {
+    object-position: var(--focus, center);
+  }
+
+  .hero-copy .eyebrow {
+    letter-spacing: 0.24em;
+    font-size: 0.6rem;
+  }
+
+  [data-cap='restaurant'] dl {
+    justify-content: center;
+  }
+
+  .vignette {
+    background: radial-gradient(ellipse at center, transparent 35%, rgb(31 5 11 / 0.6));
+  }
+}
+
+/* Reduced motion: no pinning, every scene is a normal full-height section. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .journey {
+    height: auto;
+  }
+
+  .stage {
+    overflow: visible;
+  }
+
+  .layer {
+    position: relative;
+    height: 100svh;
+    min-height: 32rem;
+  }
+
+  .door-light,
+  .vignette,
+  .hud,
+  .scroll-hint i::after {
+    display: none;
+  }
+
+  .caption {
+    bottom: 3rem;
+  }
+
+  .scroll-hint {
+    bottom: 2rem;
+  }
+}
+
+html.is-loading,
+html.is-loading body {
+  overflow: hidden;
+}
+
+/* ---------- Booking form ---------- */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.field-label {
+  font-size: 0.62rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--color-gold);
+}
+
+.field-input {
+  width: 100%;
+  min-width: 0;
+  padding: 0.6rem 0;
+  border: 0;
+  border-bottom: 1px solid rgb(245 236 217 / 0.25);
+  background: transparent;
+  color: var(--color-cream);
+  font: inherit;
+  font-size: 1rem;
+  color-scheme: dark;
+  outline: none;
+  transition: border-color 0.3s;
+}
+
+.field-input:focus-visible {
+  border-color: var(--color-gold);
+}
+
+.field-input option {
+  background: var(--color-maroon);
+}
+
+.step-btn {
+  display: grid;
+  place-items: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border: 1px solid rgb(201 162 75 / 0.5);
+  border-radius: 999px;
+  color: var(--color-gold);
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: background 0.3s, color 0.3s, opacity 0.3s;
+}
+
+.step-btn:hover:not(:disabled) {
+  background: var(--color-gold);
+  color: var(--color-maroon-deep);
+}
+
+.step-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.book-btn {
+  position: relative;
+  overflow: hidden;
+  padding: 1rem 2.6rem;
+  background: linear-gradient(135deg, #e6c97f, #c9a24b 45%, #9c7629);
+  color: var(--color-maroon-deep);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 0.4s, box-shadow 0.4s, opacity 0.3s;
+}
+
+.book-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / 0.45), transparent 70%);
+  transform: translateX(-100%);
+  transition: transform 0.8s;
+}
+
+.book-btn:hover:not(:disabled) {
+  box-shadow: 0 10px 40px rgb(201 162 75 / 0.35);
+  transform: translateY(-2px);
+}
+
+.book-btn:hover:not(:disabled)::after {
+  transform: translateX(100%);
+}
+
+.book-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.book-btn:focus-visible,
+.step-btn:focus-visible {
+  outline: 2px solid var(--color-gold-light);
+  outline-offset: 3px;
+}
