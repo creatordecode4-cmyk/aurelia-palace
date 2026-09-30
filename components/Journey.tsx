@@ -271,6 +271,8 @@ export default function Journey({ ready }: { ready: boolean }) {
       covered.forEach(([id, at]) => tl.set(layer(id), { visibility: 'hidden' }, at))
 
       time.current = () => tl.time()
+      // Lets visual checks (scripts/check-3d-artifacts.mjs) scroll to an exact timeline time.
+      el.dataset.duration = String(tl.duration())
       const labels = SCENES.map((s) => tl.labels[s.at])
       const st = ScrollTrigger.create({
         trigger: el,

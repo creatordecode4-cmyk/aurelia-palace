@@ -61,6 +61,8 @@ function World({ time, intro, sway, mobile, onReady, onFail }: Omit<JourneyCanva
   const { gl, size, setDpr, viewport } = useThree()
   const [world, setWorld] = useState<ReturnType<typeof buildWorld> | null>(null)
   const dust = useMemo(() => createDust(mobile ? 160 : 420), [mobile])
+  // Random dust would make screenshot comparisons noisy; the visual check turns it off.
+  const noDust = useMemo(() => new URLSearchParams(location.search).get('debug3d')?.includes('nodust') ?? false, [])
   const smooth = useRef(new THREE.Vector2())
   const target = useRef(new THREE.Vector2())
   const frame = useRef({ t: 0, intro: 1, sway: new THREE.Vector2(), aspect: 1, mobile })
@@ -71,7 +73,9 @@ function World({ time, intro, sway, mobile, onReady, onFail }: Omit<JourneyCanva
     loadAssets(mobile, gl)
       .then((assets) => {
         if (!alive) return
-        const w = buildWorld(assets)
+        const debug = new Set((new URLSearchParams(location.search).get('debug3d') ?? '').split(',').filter(Boolean))
+        if (debug.has('nodepth')) assets.hasDepth.clear()
+        const w = buildWorld(assets, debug)
         // Upload every texture now, so nothing stalls the first time a scene scrolls in.
         Object.values(assets.photos).forEach((t) => gl.initTexture(t))
         Object.values(assets.depth).forEach((t) => gl.initTexture(t))
@@ -123,7 +127,7 @@ function World({ time, intro, sway, mobile, onReady, onFail }: Omit<JourneyCanva
   return (
     <>
       {world && <primitive object={world.root} />}
-      <primitive object={dust.points} />
+      {!noDust && <primitive object={dust.points} />}
     </>
   )
 }
