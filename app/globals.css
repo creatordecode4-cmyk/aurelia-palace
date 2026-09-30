@@ -472,3 +472,83 @@ html.is-loading body {
   outline: 2px solid var(--color-gold-light);
   outline-offset: 3px;
 }
+
+/* ---------- 3D (WebGL) journey ---------- */
+
+.canvas-wrap {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.canvas-wrap canvas {
+  display: block;
+}
+
+/* Once the canvas is live it draws every photo, door and light; the DOM keeps only the text. */
+.journey.is-3d .photo,
+.journey.is-3d .door,
+.journey.is-3d .door-light,
+.journey.is-3d .plaque {
+  display: none;
+}
+
+.journey.is-3d .layer::after {
+  display: none;
+}
+
+.journey.is-3d .layer {
+  will-change: auto;
+}
+
+/* One shared shade for text legibility instead of one per layer (layers are transparent over the canvas). */
+.journey.is-3d .vignette {
+  background:
+    radial-gradient(ellipse at center, transparent 45%, rgb(31 5 11 / 0.6)),
+    linear-gradient(to top, rgb(31 5 11 / 0.8), transparent 50%);
+}
+
+.journey.is-3d .layer,
+.journey.is-3d .hud {
+  z-index: 2;
+}
+
+.tilt-btn {
+  position: absolute;
+  z-index: 4;
+  top: calc(env(safe-area-inset-top) + 4.4rem);
+  right: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid rgb(201 162 75 / 0.55);
+  border-radius: 999px;
+  background: rgb(31 5 11 / 0.55);
+  backdrop-filter: blur(6px);
+  color: var(--color-cream);
+  font-size: 0.6rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.tilt-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: rgb(245 236 217 / 0.35);
+}
+
+.tilt-btn[aria-pressed='true'] .tilt-dot {
+  background: var(--color-gold);
+  box-shadow: 0 0 8px var(--color-gold);
+}
+
+/* The 2D dust overlay steps aside while the 3D dust is on screen. */
+.has-3d.in-journey .dust2d {
+  opacity: 0;
+}
+
+.dust2d {
+  transition: opacity 0.6s;
+}
