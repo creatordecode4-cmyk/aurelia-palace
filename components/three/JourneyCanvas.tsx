@@ -38,7 +38,8 @@ async function loadAssets(mobile: boolean, gl: THREE.WebGLRenderer): Promise<Ass
       photos[name] = tex
     }),
   )
-  const hasDepth = await loadDepthManifest()
+  const manifest = await loadDepthManifest()
+  const hasDepth = manifest.images
   const flat = flatDepthTexture()
   const depth: Record<string, THREE.Texture> = {}
   await Promise.all(
@@ -46,7 +47,7 @@ async function loadAssets(mobile: boolean, gl: THREE.WebGLRenderer): Promise<Ass
       if (!hasDepth.has(name)) return void (depth[name] = flat)
       try {
         // Low-res depth on phones: cheaper to prepare and to sample, and the smoothing hides it.
-        depth[name] = await loadDepthTexture(name, mobile ? 192 : 512)
+        depth[name] = await loadDepthTexture(name, mobile ? 192 : 512, mobile && manifest.small.has(name))
       } catch {
         hasDepth.delete(name)
         depth[name] = flat

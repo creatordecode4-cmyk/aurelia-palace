@@ -42,18 +42,24 @@ the DOM keeps only the text, still animated by the same GSAP timeline.
 
 ### Depth maps
 
-Depth only activates for photos that have a map in `public/depth/` (`<photo>.png`, greyscale, white = near,
-same aspect as the photo). Without maps the 3D camera, doors, dust and tilt still work, but each photo is a flat plane.
+Depth maps live in `public/depth/`, one per journey photo (all except `spa.jpg`, which keeps its plain
+scroll parallax in the About section):
 
-Generate them with Depth Anything V2 (small) on your machine:
+- `<photo>-depth.png`: greyscale, white = near, 512 px wide (desktop)
+- `<photo>-depth-sm.png`: the same at 256 px, loaded on phones (optional; falls back to the full map)
+
+The current maps are Depth Anything V2 outputs. `public/depth/manifest.json` is rebuilt automatically before
+`dev` and `build`, so a photo gets depth as soon as its PNG is there. On load, maps are smoothed and dilated so near
+objects keep clean edges.
+
+To regenerate them with Depth Anything V2 (small) on your machine:
 
 ```bash
 npm install --no-save @huggingface/transformers
 npm run depth            # all photos, or: npm run depth -- lobby corridor
 ```
 
-Or use any other tool and drop the PNGs in. `public/depth/manifest.json` is rebuilt automatically before
-`dev` and `build`. If the 3D looks inside-out, your maps are inverted (black = near); invert them.
+If the 3D ever looks inside-out, the maps are inverted (black = near); invert them.
 
 ## Performance & accessibility
 
@@ -61,7 +67,7 @@ Or use any other tool and drop the PNGs in. `public/depth/manifest.json` is rebu
 - `gsap.matchMedia` gives phones (≤767px) smaller camera moves, fewer particles and static grain.
 - Portrait phones use per-image focal points so the subject stays centred.
 - `prefers-reduced-motion: reduce` turns off Lenis, pinning, particles and 3D; every scene becomes a plain stacked section.
-- 3D on phones: low-res depth (192px), capped and adaptive device pixel ratio, no mipmaps, fewer dust points. Textures
+- 3D on phones: low-res depth (256px files, 192px in the shader), capped and adaptive device pixel ratio, no mipmaps, fewer dust points. Textures
   are uploaded to the GPU up front, and the canvas stops rendering once the journey is scrolled past.
 
 ## Develop

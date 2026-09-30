@@ -1,3 +1,26 @@
 {
-  "images": []
+  "images": [
+    "bahar",
+    "corridor",
+    "darwaza",
+    "key",
+    "lobby",
+    "reception",
+    "restaurant",
+    "room1",
+    "room2",
+    "room3"
+  ],
+  "small": [
+    "bahar",
+    "corridor",
+    "darwaza",
+    "key",
+    "lobby",
+    "reception",
+    "restaurant",
+    "room1",
+    "room2",
+    "room3"
+  ]
 }

@@ -3,8 +3,9 @@
 //   npm install --no-save @huggingface/transformers
 //   npm run depth
 //
-// The model (~100 MB) downloads from Hugging Face on first run. Output: public/depth/<name>.png,
-// greyscale, same size as the photo, white = near. Any tool that produces that format works too.
+// The model (~100 MB) downloads from Hugging Face on first run. Output: public/depth/<name>-depth.png
+// (512 px wide) and <name>-depth-sm.png (256 px, phones), greyscale, white = near.
+// Any tool that produces that format works too; the -sm file is optional.
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -31,8 +32,12 @@ const only = process.argv.slice(2)
 for (const name of only.length ? only : NAMES) {
   const image = await RawImage.read(join(root, 'public', 'images', `${name}.jpg`))
   const { depth } = await estimate(image)
-  await depth.save(join(out, `${name}.png`))
-  console.log(`  ${name}.png  ${depth.width}×${depth.height}`)
+  // The site smooths maps on load, so small files are enough: 512 px for desktop, 256 px for phones.
+  for (const [suffix, width] of [['', 512], ['-sm', 256]]) {
+    const resized = await depth.resize(width, Math.round((depth.height / depth.width) * width))
+    await resized.save(join(out, `${name}-depth${suffix}.png`))
+  }
+  console.log(`  ${name}-depth.png`)
 }
 
 await import('./depth-manifest.mjs')
