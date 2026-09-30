@@ -3,7 +3,7 @@
 A cinematic, pinned-scroll website for **Aurelia Palace**, a fictional heritage hotel on the ghats of Varanasi.
 It's a concept design project, so there is no real booking, backend or payment.
 
-**Stack:** Next.js (App Router) · TypeScript · Tailwind CSS v4 · GSAP ScrollTrigger · Lenis
+**Stack:** Next.js (App Router) · TypeScript · Tailwind CSS v4 · GSAP ScrollTrigger · Lenis · three.js / React Three Fiber
 
 ## The journey
 
@@ -22,12 +22,47 @@ After the pin come **About** ("Since 1998" count-up, self-drawing facility icons
 
 Also: a loading screen with real % progress, gold dust particles (canvas), film grain, and a scene counter.
 
+## 3D layer (WebGL)
+
+When the browser has a real GPU, a React Three Fiber canvas (`components/three/`) takes over drawing the journey;
+the DOM keeps only the text, still animated by the same GSAP timeline.
+
+- **Depth parallax:** each photo is drawn with a depth-aware shader. With the mouse or phone tilt, near
+  things move more than far ones, and scroll push-ins magnify near pixels more. Samples come from an inset window
+  of the photo, so edges never stretch.
+- **3D space:** scenes are planes at real distances and the camera dollies forward. The lobby and corridor are split
+  into depth slices on separate planes at different z.
+- **Doors:** the darwaza and door 512 are boxes with thickness that swing open on hinges, with gold light behind them.
+- **Gold dust:** 3D points that stream past the camera.
+- **Tilt:** gyroscope on phones. Android is on by default; iOS shows an "Enable tilt 3D" button and stays off
+  unless permission is granted.
+- **Fallback:** the 2D version stays on screen until the canvas has rendered, and returns if WebGL is missing, the
+  browser would use software rendering, the context is lost or anything throws. `prefers-reduced-motion` never
+  loads 3D. Add `?2d` to the URL to force 2D, or `?3d` to skip the GPU check.
+
+### Depth maps
+
+Depth only activates for photos that have a map in `public/depth/` (`<photo>.png`, greyscale, white = near,
+same aspect as the photo). Without maps the 3D camera, doors, dust and tilt still work, but each photo is a flat plane.
+
+Generate them with Depth Anything V2 (small) on your machine:
+
+```bash
+npm install --no-save @huggingface/transformers
+npm run depth            # all photos, or: npm run depth -- lobby corridor
+```
+
+Or use any other tool and drop the PNGs in. `public/depth/manifest.json` is rebuilt automatically before
+`dev` and `build`. If the 3D looks inside-out, your maps are inverted (black = near); invert them.
+
 ## Performance & accessibility
 
 - Only `transform` and `opacity` are animated; images are preloaded and decoded before the journey starts.
 - `gsap.matchMedia` gives phones (≤767px) smaller camera moves, fewer particles and static grain.
 - Portrait phones use per-image focal points so the subject stays centred.
-- `prefers-reduced-motion: reduce` turns off Lenis, pinning and particles; every scene becomes a plain stacked section.
+- `prefers-reduced-motion: reduce` turns off Lenis, pinning, particles and 3D; every scene becomes a plain stacked section.
+- 3D on phones: low-res depth (192px), capped and adaptive device pixel ratio, no mipmaps, fewer dust points. Textures
+  are uploaded to the GPU up front, and the canvas stops rendering once the journey is scrolled past.
 
 ## Develop
 
