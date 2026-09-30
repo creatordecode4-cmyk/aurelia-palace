@@ -1,8 +1,29 @@
 'use client'
 
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { gsap, ScrollTrigger, MOBILE, MOTION_OK } from '@/lib/gsap'
 import { DISHES, ROOMS, SCENES, TIMINGS, img } from '@/lib/content'
+import { gyroNeedsPermission, hasGyro, requestGyroPermission, trackGyro, trackPointer, type Sway } from '@/lib/tilt'
+
+// The WebGL layer is client-only and loaded after the page is interactive.
+const JourneyCanvas = dynamic(() => import('./three/JourneyCanvas'), { ssr: false })
+
+/**
+ * Whether to use the 3D (WebGL) journey. Off for reduced motion, without WebGL, or when the browser
+ * would fall back to software rendering. `?2d` forces the 2D version, `?3d` skips the GPU check.
+ */
+function supports3d() {
+  const params = new URLSearchParams(location.search)
+  if (params.has('2d') || matchMedia('(prefers-reduced-motion: reduce)').matches) return false
+  try {
+    const c = document.createElement('canvas')
+    const opts = { failIfMajorPerformanceCaveat: !params.has('3d') }
+    return !!(c.getContext('webgl2', opts) || c.getContext('webgl', opts))
+  } catch {
+    return false
+  }
+}
 
 // Full-bleed photo. Every layer is a plain <img> so GSAP only ever animates transform/opacity.
 // On portrait phones only a narrow slice of each photo is visible; these keep the subject in it.
@@ -78,6 +99,61 @@ function RoomCaption({ index }: { index: number }) {
 export default function Journey({ ready }: { ready: boolean }) {
   const root = useRef<HTMLElement>(null)
   const [scene, setScene] = useState(0)
+
+  // 3D state: `use3d` = we try WebGL; `live3d` = the canvas has rendered and replaced the 2D photos.
+  const [use3d, setUse3d] = useState(false)
+  const [live3d, setLive3d] = useState(false)
+  const [active, setActive] = useState(true)
+  const [mobile, setMobile] = useState(false)
+  const [tilt, setTilt] = useState<'off' | 'on' | 'ask'>('off')
+  const [gyro, setGyro] = useState(false)
+  const time = useRef<() => number>(() => 0)
+  const intro = useRef(1)
+  const sway = useRef<Sway>({ x: 0, y: 0 })
+
+  useEffect(() => {
+    setUse3d(supports3d())
+    const mq = matchMedia(MOBILE)
+    setMobile(mq.matches)
+    const onChange = () => setMobile(mq.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+
+  const onReady = useCallback(() => setLive3d(true), [])
+  const onFail = useCallback(() => {
+    setLive3d(false)
+    setUse3d(false)
+  }, [])
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('has-3d', live3d)
+  }, [live3d])
+
+  // Mouse sway on desktop; gyroscope on phones (iOS asks first, so it stays off until the button is tapped).
+  useEffect(() => {
+    if (!use3d) return
+    const stopPointer = trackPointer(sway.current)
+    if (!hasGyro()) return stopPointer
+    setGyro(true)
+    if (gyroNeedsPermission()) {
+      setTilt('ask')
+      return stopPointer
+    }
+    setTilt('on')
+    return stopPointer
+  }, [use3d])
+
+  useEffect(() => {
+    if (!use3d || tilt !== 'on') return
+    return trackGyro(sway.current)
+  }, [use3d, tilt])
+
+  const toggleTilt = async () => {
+    if (tilt === 'on') return setTilt('off')
+    if (gyroNeedsPermission() && !(await requestGyroPermission())) return setTilt('ask')
+    setTilt('on')
+  }
 
   // Build the pinned master timeline. Re-built automatically by matchMedia on breakpoint changes.
   useLayoutEffect(() => {
@@ -194,6 +270,7 @@ export default function Journey({ ready }: { ready: boolean }) {
       ]
       covered.forEach(([id, at]) => tl.set(layer(id), { visibility: 'hidden' }, at))
 
+      time.current = () => tl.time()
       const labels = SCENES.map((s) => tl.labels[s.at])
       const st = ScrollTrigger.create({
         trigger: el,
@@ -203,6 +280,10 @@ export default function Journey({ ready }: { ready: boolean }) {
         scrub: mobile ? 0.6 : 1,
         animation: tl,
         invalidateOnRefresh: true,
+        onToggle: (self) => {
+          setActive(self.isActive)
+          document.documentElement.classList.toggle('in-journey', self.isActive)
+        },
         onUpdate: (self) => {
           gsap.set($('[data-progress]'), { scaleX: self.progress })
           const t = tl.time()
@@ -222,14 +303,27 @@ export default function Journey({ ready }: { ready: boolean }) {
     const q = gsap.utils.selector(root.current)
     const ctx = gsap.context(() => {
       gsap.from(q('[data-kb]'), { scale: 1.15, duration: 4, ease: 'power2.out' })
+      const settle = { v: 0 }
+      gsap.to(settle, { v: 1, duration: 4, ease: 'power2.out', onUpdate: () => void (intro.current = settle.v) })
       gsap.from(q('[data-hero-line]'), { autoAlpha: 0, y: 50, duration: 1.4, stagger: 0.18, ease: 'expo.out', delay: 0.2 })
     })
     return () => ctx.revert()
   }, [ready])
 
   return (
-    <section ref={root} aria-label="Journey through Aurelia Palace" className="journey">
+    <section ref={root} aria-label="Journey through Aurelia Palace" className={`journey ${live3d ? 'is-3d' : ''}`}>
       <div className="stage">
+        {use3d && (
+          <div className="canvas-wrap" aria-hidden>
+            <JourneyCanvas time={time} intro={intro} sway={sway} active={active} mobile={mobile} onReady={onReady} onFail={onFail} />
+          </div>
+        )}
+        {live3d && gyro && (
+          <button type="button" className="tilt-btn" aria-pressed={tilt === 'on'} onClick={toggleTilt}>
+            <span aria-hidden className="tilt-dot" />
+            {tilt === 'on' ? 'Tilt 3D on' : 'Enable tilt 3D'}
+          </button>
+        )}
         <div data-layer="lobby" className="layer" style={{ order: 3 }}>
           <Photo name="lobby" alt="The grand lobby with chandeliers and a marigold urli" />
           <Caption id="lobby" kicker="III · Entry" title={<>The Grand <em>Lobby</em></>}>

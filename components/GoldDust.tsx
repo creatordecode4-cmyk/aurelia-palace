@@ -56,6 +56,12 @@ export default function GoldDust() {
       const dt = Math.min(0.05, (now - last) / 1000)
       last = now
       ctx.clearRect(0, 0, w, h)
+      // The 3D journey draws its own dust; skip drawing while it is on screen.
+      const html = document.documentElement.classList
+      if (html.contains('has-3d') && html.contains('in-journey')) {
+        raf = requestAnimationFrame(frame)
+        return
+      }
       const t = now / 1000
       for (const m of motes) {
         m.y -= m.vy * dt
@@ -83,5 +89,5 @@ export default function GoldDust() {
     }
   }, [])
 
-  return <canvas ref={ref} aria-hidden className="pointer-events-none fixed inset-0 z-40 size-full" />
+  return <canvas ref={ref} aria-hidden className="dust2d pointer-events-none fixed inset-0 z-40 size-full" />
 }
