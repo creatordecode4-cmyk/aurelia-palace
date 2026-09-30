@@ -100,10 +100,6 @@ em {
   transform-origin: 56% 70%;
 }
 
-.layer--corridor .photo {
-  transform-origin: 50% 58%;
-}
-
 .hero-shade {
   position: absolute;
   inset: 0;
@@ -204,6 +200,48 @@ em {
   font-weight: 600;
   letter-spacing: 0.1em;
   box-shadow: 0 0 30px rgb(230 190 100 / 0.6);
+}
+
+/* Door 512 (2D): placed over the corridor photo's own end door, inside the same "camera" box so it scales
+   with the photo. Container units reproduce object-fit: cover (photo aspect 1672/941). */
+.layer--corridor {
+  container-type: size;
+}
+
+.corridor-cam {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 58.4%;
+  will-change: transform;
+  --pw: max(100cqw, 100cqh * 1.7768);
+  --ph: max(100cqh, 100cqw / 1.7768);
+}
+
+.door512 {
+  position: absolute;
+  left: calc(50% + (0.4623 - 0.5) * var(--pw));
+  top: calc(50% + (0.475 - 0.5) * var(--ph));
+  width: calc(0.076 * var(--pw));
+  height: calc(0.2189 * var(--ph));
+  overflow: hidden;
+}
+
+.door512 .door {
+  box-shadow: none;
+}
+
+.door512-portal {
+  object-position: 58% 50%;
+}
+
+.plaque--512 {
+  top: 21%;
+  left: 49%;
+  padding: 0 0.3em;
+  border-width: 1px;
+  font-size: calc(0.076 * var(--pw) * 0.12);
+  letter-spacing: 0.06em;
+  box-shadow: 0 0 6px rgb(230 190 100 / 0.5);
 }
 
 /* Captions */
@@ -489,7 +527,8 @@ html.is-loading body {
 .journey.is-3d .photo,
 .journey.is-3d .door,
 .journey.is-3d .door-light,
-.journey.is-3d .plaque {
+.journey.is-3d .plaque,
+.journey.is-3d .door512 {
   display: none;
 }
 

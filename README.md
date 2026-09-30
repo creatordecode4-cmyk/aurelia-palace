@@ -32,7 +32,10 @@ the DOM keeps only the text, still animated by the same GSAP timeline.
   of the photo, so edges never stretch.
 - **3D space:** scenes are planes at real distances and the camera dollies forward. The lobby and corridor are split
   into depth slices on separate planes at different z.
-- **Doors:** the darwaza and door 512 are boxes with thickness that swing open on hinges, with gold light behind them.
+- **Doors:** the entrance (darwaza) doors are boxes with thickness that swing open on hinges, with gold light behind
+  them. Door 512 is the corridor photo's own end door (`door512.jpg`, cut from `corridor.jpg`), rebuilt as hinged
+  leaves on top of it: small at the far end, growing as you walk, opening at the end of the corridor onto room 1.
+  The photo's baked "$12" text was removed, so the gold plate is the only "512".
 - **Gold dust:** 3D points that stream past the camera.
 - **Tilt:** gyroscope on phones. Android is on by default; iOS shows an "Enable tilt 3D" button and stays off
   unless permission is granted.
@@ -90,11 +93,16 @@ npm run check:3d      # visual check of the door scenes; needs `npm start` runni
                       # Playwright's Chromium (`npx playwright install chromium`)
 ```
 
-`check:3d` renders every door-opening moment on a 360 px phone and a desktop viewport, fails on a glow wash
-or a stretched vertical strip between the panels, and saves screenshots to `.artifacts/3d-check/`.
+`check:3d` runs on a 360 px phone and a desktop viewport. It scrolls through the whole journey and fails if any
+3D layer is rendered outside its scene window (`components/three/schedule.ts`), or if door 512 is not small at the
+start of the corridor, growing, and opening only at the end. It also renders every door-opening moment and fails on a
+glow wash or a stretched vertical strip. Screenshots go to `.artifacts/3d-check/`.
+
+Scene timing lives in `components/three/schedule.ts`: each 3D layer's visible window and door 512's
+approach/open/through schedule. `npm test` checks those rules without a browser.
 
 For debugging the 3D layer, `?3d&debug3d=…` switches off single layers: `noglow`, `nolight`, `nodepth`,
-`nopanels`, `nodust` (comma-separated).
+`nopanels`, `nodust`, `stats` (publishes visible layers to `window.__aurelia3d`), comma-separated.
 
 ## Deploy
 
