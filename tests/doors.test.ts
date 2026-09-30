@@ -32,8 +32,8 @@ test('the glow is always round, on portrait phones and wide desktops alike', () 
 
 test('the glow fades as the doors open, so the room behind is never washed out', () => {
   assert.ok(glowOpacity(1, 0) <= GLOW_MAX)
-  assert.ok(GLOW_MAX <= 0.5)
-  assert.equal(glowOpacity(1, 0.45), 0)
+  assert.ok(GLOW_MAX <= 0.25, 'a warm tint, not a wash')
+  assert.equal(glowOpacity(1, 0.3), 0)
   assert.equal(glowOpacity(1, 1), 0)
   let prev = Infinity
   for (let open = 0; open <= 1; open += 0.05) {

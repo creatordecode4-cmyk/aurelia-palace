@@ -34,10 +34,10 @@ export function glowSize(viewW: number, viewH: number, light: number) {
 }
 
 /** Peak glow brightness. It fades as soon as the doors start opening, so the room behind is never washed out. */
-export const GLOW_MAX = 0.45
+export const GLOW_MAX = 0.22
 
 export function glowOpacity(light: number, open: number) {
-  const fade = 1 - smooth(0.05, 0.45, open)
+  const fade = 1 - smooth(0.02, 0.3, open)
   return GLOW_MAX * light * fade
 }
 
