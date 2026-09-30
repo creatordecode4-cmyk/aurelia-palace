@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { createDepthMaterial, type DepthMaterial } from './depthMaterial'
+import { glowOpacity, glowSize, panelSpans } from './doorLayout'
 
 /*
  * The 3D journey. The camera sits near the origin looking down −z; each scene ("station") is a group
@@ -24,6 +25,12 @@ export type Assets = {
   depth: Record<string, THREE.Texture>
   hasDepth: Set<string>
 }
+
+/**
+ * Debug switches from the URL (`?3d&debug3d=noglow,nolight,nodepth,nopanels,nodust`), used to isolate layers
+ * when checking for visual artifacts. They never change anything unless present.
+ */
+export type Debug = Set<string>
 
 export type Frame = {
   t: number
@@ -115,10 +122,13 @@ function glowTexture() {
   const c = document.createElement('canvas')
   c.width = c.height = 128
   const g = c.getContext('2d')!
-  const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64)
-  grad.addColorStop(0, 'rgba(255,236,170,1)')
-  grad.addColorStop(0.35, 'rgba(235,190,100,0.6)')
-  grad.addColorStop(1, 'rgba(201,162,75,0)')
+  // Gaussian-like falloff that reaches zero well inside the square, so no edge or corner ever shows.
+  const grad = g.createRadialGradient(64, 64, 0, 64, 64, 62)
+  for (let i = 0; i <= 8; i++) {
+    const r = i / 8
+    const a = Math.exp(-r * r * 4.5) * (1 - r)
+    grad.addColorStop(r, `rgba(255,${Math.round(214 + 22 * (1 - r))},${Math.round(140 + 30 * (1 - r))},${a.toFixed(3)})`)
+  }
   g.fillStyle = grad
   g.fillRect(0, 0, 128, 128)
   const tex = new THREE.CanvasTexture(c)
@@ -164,7 +174,8 @@ class Doors {
     assets: Assets,
     order: number,
     public fit: number,
-    plaque?: string,
+    plaque: string | undefined,
+    private debug: Debug,
   ) {
     const tex = assets.photos.darwaza
     const img = tex.image as { width: number; height: number }
@@ -173,10 +184,13 @@ class Doors {
     const back = new THREE.MeshStandardMaterial({ color: '#2a1008', roughness: 0.7, metalness: 0.1, transparent: true })
     this.mats.push(wood, back)
 
+    const spans = panelSpans(1)
     for (const side of [-1, 1]) {
+      // Each panel shows only its own door from the photo, never the lit gap between them.
+      const span = side < 0 ? spans.left : spans.right
       const half = tex.clone()
-      half.repeat.set(0.5, 1)
-      half.offset.set(side < 0 ? 0 : 0.5, 0)
+      half.repeat.set(span.u1 - span.u0, 1)
+      half.offset.set(span.u0, 0)
       half.needsUpdate = true
       const face = new THREE.MeshBasicMaterial({ map: half, transparent: true })
       this.mats.push(face)
@@ -208,18 +222,22 @@ class Doors {
   layout(f: Frame) {
     const { w, h } = coverAt(this.fit, f.aspect, this.aspect)
     const thick = h * 0.045
+    const spans = panelSpans(w)
     this.hinges.forEach((hinge, i) => {
       const side = i === 0 ? -1 : 1
+      const width = (i === 0 ? spans.left : spans.right).width
       hinge.position.set((side * w) / 2, 0, -thick / 2)
-      this.panels[i].position.set((-side * w) / 4, 0, 0)
-      this.panels[i].scale.set(w / 2, h, thick)
+      this.panels[i].position.set((-side * width) / 2, 0, 0)
+      this.panels[i].scale.set(width, h, thick)
     })
-    this.glow.position.set(0, 0, -thick * 2)
-    this.light.position.set(0, 0, -h * 0.4)
+    // The crack between the panels is centred on the photo's own gap.
+    const gapCenter = (spans.left.width + (w - spans.right.width)) / 2 - w / 2
+    this.glow.position.set(gapCenter, 0, -thick * 2)
+    this.light.position.set(gapCenter, 0, -h * 0.4)
     if (this.plaque) {
       const pw = viewAt(this.fit, f.aspect).w * (f.mobile ? 0.34 : 0.14)
       this.plaque.scale.set(pw, pw * 0.43, 1)
-      this.plaque.position.set(0, h * 0.3, 0.02)
+      this.plaque.position.set(gapCenter, h * 0.3, 0.02)
     }
     return { w, h }
   }
@@ -234,26 +252,28 @@ class Doors {
     for (const m of this.mats) m.opacity = opacity
     const g = this.glow.material as THREE.MeshBasicMaterial
     const v = viewAt(this.fit, f.aspect)
-    this.glow.scale.set(v.w * (0.1 + 0.9 * light), v.h * 1.1, 1)
-    g.opacity = light * opacity
-    this.light.intensity = light * 3
+    const size = glowSize(v.w, v.h, light)
+    this.glow.scale.set(size.w, size.h, 1)
+    g.opacity = this.debug.has('noglow') ? 0 : glowOpacity(light, open) * opacity
+    this.light.intensity = this.debug.has('nolight') ? 0 : light * 3
+    for (const h of this.hinges) h.visible = !this.debug.has('nopanels')
     if (this.plaque) (this.plaque.material as THREE.MeshBasicMaterial).opacity = opacity * (1 - ramp(open, 0, 0.08))
   }
 }
 
-export function buildWorld(assets: Assets) {
+export function buildWorld(assets: Assets, debug: Debug = new Set()) {
   const root = new THREE.Group()
   root.add(new THREE.AmbientLight('#ffe2b8', 1.3))
 
   // Render order follows the DOM stacking of the 2D version.
   const lobby = new Station(assets, 'lobby', 1, 7, true)
-  const doors = new Doors(assets, 2, 6)
+  const doors = new Doors(assets, 2, 6, undefined, debug)
   const hero = new Station(assets, 'bahar', 3, 5)
   const reception = new Station(assets, 'reception', 4, 5.6)
   const key = new Station(assets, 'key', 5, 5)
   const corridor = new Station(assets, 'corridor', 6, 5, true)
   const room1 = new Station(assets, 'room1', 7, 6.5)
-  const door512 = new Doors(assets, 8, 5, '512')
+  const door512 = new Doors(assets, 8, 5, '512', debug)
   const room2 = new Station(assets, 'room2', 9, 5.6)
   const room3 = new Station(assets, 'room3', 10, 5.6)
   const restaurant = new Station(assets, 'restaurant', 11, 6)

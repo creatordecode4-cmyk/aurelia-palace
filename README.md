@@ -81,6 +81,21 @@ npm run build && npm start
 
 Copy (rooms, dishes, timings, stats) lives in `lib/content.ts`. Photos are in `public/images/`.
 
+## Checks
+
+```bash
+npm run typecheck
+npm test              # unit tests for the 3D door/glow geometry and parallax limits
+npm run check:3d      # visual check of the door scenes; needs `npm start` running and
+                      # Playwright's Chromium (`npx playwright install chromium`)
+```
+
+`check:3d` renders every door-opening moment on a 360 px phone and a desktop viewport, fails on a glow wash
+or a stretched vertical strip between the panels, and saves screenshots to `.artifacts/3d-check/`.
+
+For debugging the 3D layer, `?3d&debug3d=…` switches off single layers: `noglow`, `nolight`, `nodepth`,
+`nopanels`, `nodust` (comma-separated).
+
 ## Deploy
 
 Import the repo in Vercel; the framework preset is detected automatically. Metadata, the OG/Twitter image
