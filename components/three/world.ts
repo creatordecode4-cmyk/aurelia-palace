@@ -1,6 +1,8 @@
 import * as THREE from 'three'
 import { createDepthMaterial, type DepthMaterial } from './depthMaterial'
 import { glowOpacity, glowSize, panelSpans } from './doorLayout'
+import { CORRIDOR_DOOR, DOOR512, corridorDoorCenter, inWindow, type Layer } from './schedule'
+import { MARGIN } from './depthMaterial'
 
 /*
  * The 3D journey. The camera sits near the origin looking down −z; each scene ("station") is a group
@@ -159,7 +161,7 @@ function plaqueTexture(text: string) {
   return tex
 }
 
-/** Carved double doors as boxes with real thickness, hinged at their outer edges, with gold light behind. */
+/** The entrance: carved double doors (darwaza.jpg) as boxes with real thickness, hinged at their outer edges. */
 class Doors {
   group = new THREE.Group()
   private hinges: THREE.Group[] = []
@@ -167,14 +169,12 @@ class Doors {
   private mats: THREE.Material[] = []
   private glow: THREE.Mesh
   private light = new THREE.PointLight('#ffc873', 0, 0, 0)
-  private plaque?: THREE.Mesh
   private aspect: number
 
   constructor(
     assets: Assets,
     order: number,
     public fit: number,
-    plaque: string | undefined,
     private debug: Debug,
   ) {
     const tex = assets.photos.darwaza
@@ -210,12 +210,6 @@ class Doors {
     )
     this.glow.renderOrder = order - 0.5
     this.group.add(this.glow, this.light)
-
-    if (plaque) {
-      this.plaque = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: plaqueTexture(plaque), transparent: true }))
-      this.plaque.renderOrder = order + 0.2
-      this.group.add(this.plaque)
-    }
     this.group.visible = false
   }
 
@@ -234,11 +228,6 @@ class Doors {
     const gapCenter = (spans.left.width + (w - spans.right.width)) / 2 - w / 2
     this.glow.position.set(gapCenter, 0, -thick * 2)
     this.light.position.set(gapCenter, 0, -h * 0.4)
-    if (this.plaque) {
-      const pw = viewAt(this.fit, f.aspect).w * (f.mobile ? 0.34 : 0.14)
-      this.plaque.scale.set(pw, pw * 0.43, 1)
-      this.plaque.position.set(gapCenter, h * 0.3, 0.02)
-    }
     return { w, h }
   }
 
@@ -257,8 +246,125 @@ class Doors {
     g.opacity = this.debug.has('noglow') ? 0 : glowOpacity(light, open) * opacity
     this.light.intensity = this.debug.has('nolight') ? 0 : light * 3
     for (const h of this.hinges) h.visible = !this.debug.has('nopanels')
-    if (this.plaque) (this.plaque.material as THREE.MeshBasicMaterial).opacity = opacity * (1 - ramp(open, 0, 0.08))
   }
+}
+
+/**
+ * Door 512: the corridor photo's own end door, rebuilt as two hinged leaves (door512.jpg) placed exactly
+ * over it on the corridor plane. It is part of the corridor group, so it starts small at the far end and
+ * grows as the camera walks down the corridor. Behind the leaves a "portal" shows room 1, and one gold
+ * "512" plate covers the spot where the photo's text was.
+ */
+class Door512 {
+  group = new THREE.Group()
+  private hinges: THREE.Group[] = []
+  private panels: THREE.Mesh[] = []
+  private mats: THREE.Material[] = []
+  private portal: THREE.Mesh
+  private glow: THREE.Mesh
+  private plate: THREE.Mesh
+  /** Door size in plane units after the last layout (for the on-screen size check). */
+  size = { w: 0, h: 0 }
+
+  constructor(
+    assets: Assets,
+    order: number,
+    private debug: Debug,
+  ) {
+    const tex = assets.photos.door512
+    const wood = new THREE.MeshStandardMaterial({ color: '#3a1a0c', roughness: 0.6, metalness: 0.2, transparent: true })
+    this.mats.push(wood)
+    for (const side of [-1, 1]) {
+      const leaf = tex.clone()
+      leaf.repeat.set(0.5, 1)
+      leaf.offset.set(side < 0 ? 0 : 0.5, 0)
+      leaf.needsUpdate = true
+      const face = new THREE.MeshBasicMaterial({ map: leaf, transparent: true })
+      this.mats.push(face)
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), [wood, wood, wood, wood, face, wood])
+      panel.renderOrder = order + 0.4
+      const hinge = new THREE.Group()
+      hinge.add(panel)
+      this.hinges.push(hinge)
+      this.panels.push(panel)
+      this.group.add(hinge)
+    }
+
+    // Room 1, cropped to the doorway's proportions around the bed, seen through the open door.
+    const room = assets.photos.room1.clone()
+    const roomImg = room.image as { width: number; height: number }
+    const doorAspect = ((CORRIDOR_DOOR.u1 - CORRIDOR_DOOR.u0) * 1672) / ((CORRIDOR_DOOR.v1 - CORRIDOR_DOOR.v0) * 941)
+    const cropW = doorAspect / (roomImg.width / roomImg.height)
+    room.repeat.set(cropW, 1)
+    room.offset.set(Math.min(1 - cropW, Math.max(0, 0.58 - cropW / 2)), 0)
+    room.needsUpdate = true
+    const portalMat = new THREE.MeshBasicMaterial({ map: room, transparent: true, depthTest: false, depthWrite: false })
+    this.mats.push(portalMat)
+    this.portal = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), portalMat)
+    this.portal.renderOrder = order + 0.3
+
+    this.glow = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 1),
+      new THREE.MeshBasicMaterial({ map: glowTexture(), transparent: true, blending: THREE.AdditiveBlending, depthTest: false, depthWrite: false }),
+    )
+    this.glow.renderOrder = order + 0.35
+
+    const plateMat = new THREE.MeshBasicMaterial({ map: plaqueTexture('512'), transparent: true })
+    this.mats.push(plateMat)
+    this.plate = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), plateMat)
+    this.plate.renderOrder = order + 0.45
+    this.group.add(this.portal, this.glow, this.plate)
+    this.group.visible = false
+  }
+
+  /** Places the door over the corridor photo's door, given the corridor base plane size (w × h). */
+  layout(w: number, h: number) {
+    // Photo UV → plane coordinates (the photo material samples an inset window of width 1 − 2·MARGIN).
+    const px = (u: number) => ((u - MARGIN) / (1 - 2 * MARGIN) - 0.5) * w
+    const py = (v: number) => (0.5 - (v - MARGIN) / (1 - 2 * MARGIN)) * h
+    const x0 = px(CORRIDOR_DOOR.u0)
+    const x1 = px(CORRIDOR_DOOR.u1)
+    const yTop = py(CORRIDOR_DOOR.v0)
+    const yBot = py(CORRIDOR_DOOR.v1)
+    const dw = x1 - x0
+    const dh = yTop - yBot
+    const cy = (yTop + yBot) / 2
+    const thick = dh * 0.04
+    this.size = { w: dw, h: dh }
+    this.hinges.forEach((hinge, i) => {
+      const side = i === 0 ? -1 : 1
+      hinge.position.set(side < 0 ? x0 : x1, cy, thick / 2 + 0.002)
+      this.panels[i].position.set((-side * dw) / 4, 0, 0)
+      this.panels[i].scale.set(dw / 2, dh, thick)
+    })
+    this.portal.position.set((x0 + x1) / 2, cy, 0.001)
+    this.portal.scale.set(dw, dh, 1)
+    this.glow.position.set((x0 + x1) / 2, cy, 0.0015)
+    const pw = dw * 0.3
+    this.plate.scale.set(pw, pw * 0.43, 1)
+    this.plate.position.set(x0 + CORRIDOR_DOOR.plate.x * dw, yTop - CORRIDOR_DOOR.plate.y * dh, thick + 0.004)
+  }
+
+  set(open: number, light: number, opacity: number) {
+    this.group.visible = opacity > 0.001
+    const angle = open * 1.85
+    this.hinges[0].rotation.y = angle
+    this.hinges[1].rotation.y = -angle
+    for (const m of this.mats) m.opacity = opacity
+    // The plate rides on the seam, so it fades as soon as the leaves part.
+    ;(this.plate.material as THREE.MeshBasicMaterial).opacity = opacity * (1 - ramp(open, 0, 0.08))
+    const size = glowSize(this.size.w, this.size.h, light)
+    this.glow.scale.set(size.w, size.h, 1)
+    ;(this.glow.material as THREE.MeshBasicMaterial).opacity = this.debug.has('noglow') ? 0 : glowOpacity(light, open) * opacity
+    for (const h of this.hinges) h.visible = !this.debug.has('nopanels')
+  }
+}
+
+export type WorldStats = {
+  /** Layers currently rendered. */
+  visible: string[]
+  /** Door 512: how far open (0–1) and what fraction of the screen height it fills. */
+  door512: { open: number; screenHeight: number }
 }
 
 export function buildWorld(assets: Assets, debug: Debug = new Set()) {
@@ -267,17 +373,25 @@ export function buildWorld(assets: Assets, debug: Debug = new Set()) {
 
   // Render order follows the DOM stacking of the 2D version.
   const lobby = new Station(assets, 'lobby', 1, 7, true)
-  const doors = new Doors(assets, 2, 6, undefined, debug)
+  const doors = new Doors(assets, 2, 6, debug)
   const hero = new Station(assets, 'bahar', 3, 5)
   const reception = new Station(assets, 'reception', 4, 5.6)
   const key = new Station(assets, 'key', 5, 5)
   const corridor = new Station(assets, 'corridor', 6, 5, true)
+  // The door is the farthest thing in the corridor (depth ≈ 0): pin the parallax there, so the painted
+  // door frame never slides out from under the 3D door.
+  for (const p of corridor.photos) p.mat.uniforms.uFocusDepth.value = 0
+  const door512 = new Door512(assets, 6, debug)
+  corridor.group.add(door512.group)
   const room1 = new Station(assets, 'room1', 7, 6.5)
-  const door512 = new Doors(assets, 8, 5, '512', debug)
   const room2 = new Station(assets, 'room2', 9, 5.6)
   const room3 = new Station(assets, 'room3', 10, 5.6)
   const restaurant = new Station(assets, 'restaurant', 11, 6)
-  for (const s of [lobby, doors, hero, reception, key, corridor, room1, door512, room2, room3, restaurant]) root.add(s.group)
+  const layers: Record<Layer, { group: THREE.Group }> = { hero, doors, lobby, reception, key, corridor, room1, room2, room3, restaurant }
+  for (const s of Object.values(layers)) root.add(s.group)
+  const stats: WorldStats = { visible: [], door512: { open: 0, screenHeight: 0 } }
+  // Opacity for a layer, forced to 0 outside its scene window.
+  const within = (layer: Layer, t: number, opacity: number) => (inWindow(layer, t) ? opacity : 0)
 
   const sway = new THREE.Vector2()
 
@@ -287,6 +401,7 @@ export function buildWorld(assets: Assets, debug: Debug = new Set()) {
     const tx = (target[0] - 0.5) * w + ox
     const ty = (0.5 - target[1]) * h
     s.group.position.set(-amount * tx, -amount * ty, -s.fit * (1 - amount))
+    return { w, h }
   }
 
   // Horizontal camera pan between rooms, with a slight turn so the rooms feel like spaces, not slides.
@@ -306,53 +421,62 @@ export function buildWorld(assets: Assets, debug: Debug = new Set()) {
     hero.layout(f)
     hero.group.position.set(0, 0, lerp(-5, -3.1, inOut(ramp(t, 0, 2)) * k))
     hero.group.scale.setScalar(1 + 0.15 * (1 - f.intro))
-    hero.set(1 - ramp(t, 1.2, 2.0), 0.3 * ramp(t, 0, 2), sway)
+    hero.set(within('hero', t, 1 - ramp(t, 1.2, 2.0)), 0.3 * ramp(t, 0, 2), sway)
 
     // 2 · Doors: approach, gold light, swing open on hinges, then walk through the frame.
     doors.layout(f)
     const through = easeIn(ramp(t, 4.6, 5.6))
     doors.group.position.z = lerp(-6, -5, easeOut(ramp(t, 1, 2.8))) + through * 10
-    doors.set(inOut(ramp(t, 3.1, 4.8)), ramp(t, 2.8, 3.5) * (1 - ramp(t, 4.1, 5)), t < 5.6 ? 1 : 0, f)
+    doors.set(inOut(ramp(t, 3.1, 4.8)), ramp(t, 2.8, 3.5) * (1 - ramp(t, 4.1, 5)), within('doors', t, 1), f)
 
     // 3 · Lobby (depth slices): revealed behind the doors, then the camera walks in.
     lobby.layout(f)
     lobby.group.position.z = lerp(-7, -6, inOut(ramp(t, 2.9, 4.8))) + 2 * k * inOut(ramp(t, 4.8, 7.4))
-    lobby.set(t >= 1 && t < 7.4 ? 1 : 0, 0.25 * ramp(t, 4.8, 7.4), sway)
+    lobby.set(within('lobby', t, 1), 0.25 * ramp(t, 4.8, 7.4), sway)
 
     // 4 · Reception, then a macro push onto the key.
     reception.layout(f)
     reception.group.position.z = lerp(-5.6, -4.4, ramp(t, 6.5, 9.4))
-    reception.set(t < 9.5 ? ramp(t, 6.5, 7.3) : 0, 0.2 * ramp(t, 6.5, 9.4), sway)
+    reception.set(within('reception', t, ramp(t, 6.5, 7.3)), 0.2 * ramp(t, 6.5, 9.4), sway)
 
     const keyTarget: [number, number] = [0.56, 0.7]
     pushToward(key, f, keyTarget, (mobile ? 0.36 : 0.5) * inOut(ramp(t, 8.6, 11)))
-    key.set(t < 11.7 ? ramp(t, 8.6, 9.3) : 0, 0.35 * ramp(t, 8.6, 11), sway, keyTarget)
+    key.set(within('key', t, ramp(t, 8.6, 9.3)), 0.35 * ramp(t, 8.6, 11), sway, keyTarget)
 
-    // 5 · Corridor (depth slices): push down the gallery; door 512 grows out of the dark and opens.
-    const corridorTarget: [number, number] = [0.5, 0.58]
-    pushToward(corridor, f, corridorTarget, (mobile ? 0.42 : 0.55) * easeIn(ramp(t, 10.9, 13.6)))
-    corridor.set(t < 14 ? ramp(t, 10.8, 11.5) : 0, 0.3 * ramp(t, 10.9, 13.6), sway, corridorTarget)
+    // 5 · Corridor (depth slices): a slow walk toward door 512, which is small at first and grows;
+    //     it opens only near the end of the scene, then the camera goes through into room 1.
+    const target = corridorDoorCenter()
+    const push =
+      DOOR512.pushApproach * inOut(ramp(t, ...DOOR512.approach)) +
+      (DOOR512.pushThrough - DOOR512.pushApproach) * easeIn(ramp(t, ...DOOR512.through))
+    const plane = pushToward(corridor, f, target, push)
+    const corridorOpacity = within('corridor', t, ramp(t, 10.8, 11.5))
+    corridor.set(corridorOpacity, 0.3 * ramp(t, ...DOOR512.approach), sway, target)
+    door512.layout(plane.w, plane.h)
+    const open512 = inOut(ramp(t, ...DOOR512.open))
+    door512.set(open512, ramp(t, ...DOOR512.light), corridorOpacity)
+    stats.door512.open = open512
+    stats.door512.screenHeight = door512.size.h / viewAt(-corridor.group.position.z, f.aspect).h
 
-    door512.layout(f)
-    const through512 = easeIn(ramp(t, 15, 15.8))
-    door512.group.position.z = lerp(-12, -5, easeOut(ramp(t, 12.6, 13.8))) + through512 * 9
-    door512.set(inOut(ramp(t, 14, 15.4)), ramp(t, 13.8, 14.3) * (1 - ramp(t, 14.9, 15.5)), t < 15.8 ? ramp(t, 12.6, 13.1) : 0, f)
-
-    // 6 · Room tour.
-    const r1z = lerp(-6.5, -5, inOut(ramp(t, 13.9, 16.6)))
+    // 6 · Room tour: room 1 fades in as the camera passes through the doorway.
+    const r1z = lerp(-6.5, -5, inOut(ramp(t, 14.8, 16.6)))
     pan(room1, f, 1, ramp(t, 16.6, 17.9), r1z)
-    room1.set(t >= 13.8 && t < 18.1 ? 1 : 0, 0.2 * ramp(t, 13.9, 16.6), sway)
+    room1.set(within('room1', t, ramp(t, 14.8, 15.3)), 0.2 * ramp(t, 14.8, 16.6), sway)
 
     pan(room2, f, ramp(t, 16.6, 17.9), ramp(t, 19, 20.3), lerp(-5.6, -5, ramp(t, 16.6, 19)))
-    room2.set(t >= 16.6 && t < 20.4 ? 1 : 0, 0.15 * ramp(t, 16.6, 19), sway)
+    room2.set(within('room2', t, 1), 0.15 * ramp(t, 16.6, 19), sway)
 
     pan(room3, f, ramp(t, 19, 20.3), 0, lerp(-5.6, -5, ramp(t, 19, 21.4)))
-    room3.set(t >= 19 && t < 22.5 ? 1 : 0, 0.15 * ramp(t, 19, 21.4), sway)
+    room3.set(within('room3', t, 1), 0.15 * ramp(t, 19, 21.4), sway)
 
     // 7 · Restaurant.
     restaurant.layout(f)
     restaurant.group.position.z = lerp(-6, -4.6, ramp(t, 21.4, 24.4))
-    restaurant.set(ramp(t, 21.4, 22.3), 0.2 * ramp(t, 21.4, 24.4), sway)
+    restaurant.set(within('restaurant', t, ramp(t, 21.4, 22.3)), 0.2 * ramp(t, 21.4, 24.4), sway)
+
+    stats.visible = (Object.keys(layers) as Layer[]).filter((name) => layers[name].group.visible)
+    if (door512.group.visible && corridor.group.visible) stats.visible.push('door512')
+    return stats
   }
 
   /** Forward distance travelled so far; drives the dust so it streams past the camera. */

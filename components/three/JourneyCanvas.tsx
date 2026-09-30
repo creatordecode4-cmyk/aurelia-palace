@@ -9,7 +9,7 @@ import { buildWorld, FOV, type Assets } from './world'
 import { createDust } from './dust'
 import { flatDepthTexture, loadDepthManifest, loadDepthTexture } from './depth'
 
-const PHOTOS = ['bahar', 'darwaza', 'lobby', 'reception', 'key', 'corridor', 'room1', 'room2', 'room3', 'restaurant']
+const PHOTOS = ['bahar', 'darwaza', 'lobby', 'reception', 'key', 'corridor', 'door512', 'room1', 'room2', 'room3', 'restaurant']
 
 export type JourneyCanvasProps = {
   time: React.RefObject<() => number>
@@ -60,6 +60,8 @@ async function loadAssets(mobile: boolean, gl: THREE.WebGLRenderer): Promise<Ass
 function World({ time, intro, sway, mobile, onReady, onFail }: Omit<JourneyCanvasProps, 'active'>) {
   const { gl, size, setDpr, viewport } = useThree()
   const [world, setWorld] = useState<ReturnType<typeof buildWorld> | null>(null)
+  // `?debug3d=stats` publishes per-frame layer visibility for the visual checks (scripts/check-3d-*.mjs).
+  const publishStats = useMemo(() => new URLSearchParams(location.search).get('debug3d')?.includes('stats') ?? false, [])
   const dust = useMemo(() => createDust(mobile ? 160 : 420), [mobile])
   // Random dust would make screenshot comparisons noisy; the visual check turns it off.
   const noDust = useMemo(() => new URLSearchParams(location.search).get('debug3d')?.includes('nodust') ?? false, [])
@@ -104,7 +106,8 @@ function World({ time, intro, sway, mobile, onReady, onFail }: Omit<JourneyCanva
     cam.position.set(smooth.current.x * (mobile ? 0.1 : 0.16), -smooth.current.y * (mobile ? 0.07 : 0.1), 0)
     cam.lookAt(0, 0, -10)
 
-    world.update(f)
+    const stats = world.update(f)
+    if (publishStats) (window as unknown as { __aurelia3d: unknown }).__aurelia3d = { t: f.t, ...stats }
     dust.mat.uniforms.uTime.value = state.clock.elapsedTime
     dust.mat.uniforms.uTravel.value = world.travel(f.t)
     dust.mat.uniforms.uPixelRatio.value = viewport.dpr

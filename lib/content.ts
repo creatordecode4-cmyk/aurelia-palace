@@ -8,6 +8,7 @@ export const ALL_IMAGES = [
   'reception',
   'key',
   'corridor',
+  'door512',
   'room1',
   'room2',
   'room3',

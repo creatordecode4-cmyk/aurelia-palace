@@ -182,7 +182,7 @@ export default function Journey({ ready }: { ready: boolean }) {
 
       // Everything above the lobby starts hidden; the timeline reveals it.
       gsap.set(
-        ['reception', 'key', 'corridor', 'room1', 'door512', 'room2', 'room3', 'restaurant'].map(layer),
+        ['reception', 'key', 'corridor', 'room1', 'room2', 'room3', 'restaurant'].map(layer),
         { autoAlpha: 0 },
       )
       gsap.set(q('[data-cap]:not([data-cap="hero"])'), { autoAlpha: 0 })
@@ -221,19 +221,21 @@ export default function Journey({ ready }: { ready: boolean }) {
         .fromTo(photo('key'), { scale: 1 }, { scale: zoom(0.9), duration: 2.4 }, 8.6)
       show(tl, 'key', 9.2, 1.5)
 
-      // 5 · CORRIDOR — push down the gallery until door 512 fills the frame and opens.
+      // 5 · CORRIDOR — a slow walk toward door 512 at the far end; it opens only at the end of the scene.
+      //     Same schedule as the 3D version (components/three/schedule.ts → DOOR512).
       tl.addLabel('corridor', 10.9)
         .to(layer('corridor'), { autoAlpha: 1, duration: 0.7 }, 10.8)
-        .fromTo(photo('corridor'), { scale: 1 }, { scale: zoom(1.4), duration: 2.6, ease: 'power1.in' }, 10.9)
+        // Door ≈ 22% of the screen height at rest → ≈ 48% by the end of the walk → fills it going through.
+        .fromTo($('[data-cam="corridor"]'), { scale: 1 }, { scale: 2.2, duration: 2.5, ease: 'power1.inOut' }, 10.9)
+        .to($('[data-cam="corridor"]'), { scale: 5, duration: 1.1, ease: 'power2.in' }, 14.2)
       show(tl, 'corridor', 11.3, 1.2)
-      tl.fromTo(layer('door512'), { autoAlpha: 0, scale: 0.4 }, { autoAlpha: 1, scale: 1, duration: 1.2, ease: 'power2.out' }, 12.6)
-        .set(layer('room1'), { autoAlpha: 1 }, 13.8)
-        .fromTo($('[data-light="512"]'), { scaleX: 0, autoAlpha: 0 }, { scaleX: 1, autoAlpha: 1, duration: 0.5 }, 13.8)
-        .to($('[data-plaque="512"]'), { autoAlpha: 0, duration: 0.3 }, 13.9)
-        .to($('[data-door="512-l"]'), { xPercent: -101, duration: 1.4, ease: 'power2.inOut' }, 14)
-        .to($('[data-door="512-r"]'), { xPercent: 101, duration: 1.4, ease: 'power2.inOut' }, 14)
-        .to($('[data-light="512"]'), { autoAlpha: 0, duration: 0.6 }, 14.9)
-        .fromTo(photo('room1'), { scale: zoom(0.3) }, { scale: 1, duration: 2 }, 13.9)
+      tl.fromTo($('[data-light="512"]'), { scaleX: 0, autoAlpha: 0 }, { scaleX: 1, autoAlpha: 1, duration: 0.4 }, 13.1)
+        .to($('[data-plaque="512"]'), { autoAlpha: 0, duration: 0.2 }, 13.4)
+        .to($('[data-door="512-l"]'), { xPercent: -101, duration: 1, ease: 'power2.inOut' }, 13.4)
+        .to($('[data-door="512-r"]'), { xPercent: 101, duration: 1, ease: 'power2.inOut' }, 13.4)
+        .to($('[data-light="512"]'), { autoAlpha: 0, duration: 0.5 }, 13.8)
+        .fromTo(layer('room1'), { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.5 }, 14.8)
+        .fromTo(photo('room1'), { scale: zoom(0.3) }, { scale: 1, duration: 1.8 }, 14.8)
 
       // 6 · ROOM TOUR — each room pans in over the last.
       tl.addLabel('rooms', 14.9)
@@ -262,8 +264,7 @@ export default function Journey({ ready }: { ready: boolean }) {
         ['lobby', 7.4],
         ['reception', 9.4],
         ['key', 11.6],
-        ['corridor', 13.9],
-        ['door512', 15.5],
+        ['corridor', 15.4],
         ['room1', 18],
         ['room2', 20.4],
         ['room3', 22.4],
@@ -373,7 +374,23 @@ export default function Journey({ ready }: { ready: boolean }) {
         </div>
 
         <div data-layer="corridor" className="layer layer--corridor" style={{ order: 6 }}>
-          <Photo name="corridor" alt="Lantern-lit corridor with a red carpet leading to a carved door" />
+          {/* The door sits on the photo's own end door and scales with it, so it is small at first. */}
+          <div data-cam="corridor" className="corridor-cam">
+            <Photo name="corridor" alt="Lantern-lit corridor with a red carpet leading to a carved door" />
+            <div className="door512">
+              <Photo name="room1" className="door512-portal" />
+              <div data-light="512" className="door-light" />
+              <div data-door="512-l" className="door door--left">
+                <Photo name="door512" />
+              </div>
+              <div data-door="512-r" className="door door--right">
+                <Photo name="door512" alt="Carved door of Suite 512" />
+              </div>
+              <div data-plaque="512" className="plaque plaque--512">
+                512
+              </div>
+            </div>
+          </div>
           <Caption id="corridor" kicker="V · The Long Gallery" title={<>The way to <em>Suite 512</em></>}>
             <p className="caption-text">Lanterns every few paces, velvet drapes, and a single door at the end.</p>
           </Caption>
@@ -382,10 +399,6 @@ export default function Journey({ ready }: { ready: boolean }) {
         <div data-layer="room1" className="layer" style={{ order: 8 }}>
           <Photo name="room1" alt={ROOMS[0].title} />
           <RoomCaption index={0} />
-        </div>
-
-        <div data-layer="door512" className="layer layer--door512" style={{ order: 7 }}>
-          <Doors id="512" plaque="512" />
         </div>
 
         <div data-layer="room2" className="layer" style={{ order: 9 }}>
