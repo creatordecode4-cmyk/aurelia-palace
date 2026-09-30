@@ -142,11 +142,12 @@ for (const vp of VIEWPORTS) {
   // Every 0.25 s: nothing on screen outside its window.
   for (let t = 0.25; t < j.duration - 0.25; t += 0.25) {
     const st = await seek(j, +t.toFixed(2))
+    // Judge by the time the canvas actually rendered (seek lands within ±0.02 of the target).
     for (const layer of st.visible) {
       const [a, b] = windowOf(layer)
-      expect(t >= a && t < b, `t=${t.toFixed(2)}: ${layer} is visible outside its scene (${a}–${b})`)
+      expect(st.t >= a && st.t < b, `t=${st.t.toFixed(3)}: ${layer} is visible outside its scene (${a}–${b})`)
     }
-    if (t >= WINDOWS.doors[1]) expect(!st.visible.includes('doors'), `t=${t.toFixed(2)}: entrance doors still visible`)
+    if (st.t >= WINDOWS.doors[1]) expect(!st.visible.includes('doors'), `t=${st.t.toFixed(3)}: entrance doors still visible`)
   }
   // Door 512 story: far away and closed → bigger, still closed → opening at the end.
   const start = await seek(j, DOOR512.approach[0] + 0.1)

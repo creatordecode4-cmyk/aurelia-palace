@@ -2,6 +2,7 @@
   "name": "aurelia-palace",
   "private": true,
   "version": "2.0.0",
+  "type": "module",
   "scripts": {
     "predev": "node scripts/depth-manifest.mjs",
     "dev": "next dev",
