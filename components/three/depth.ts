@@ -1,14 +1,16 @@
 import * as THREE from 'three'
 
+export type DepthManifest = { images: Set<string>; small: Set<string> }
+
 // Which photos have a depth map in public/depth (written by scripts/depth-manifest.mjs).
-export async function loadDepthManifest(): Promise<Set<string>> {
+export async function loadDepthManifest(): Promise<DepthManifest> {
   try {
     const res = await fetch('/depth/manifest.json', { cache: 'no-cache' })
-    if (!res.ok) return new Set()
-    const { images } = (await res.json()) as { images?: string[] }
-    return new Set(images ?? [])
+    if (!res.ok) throw new Error(String(res.status))
+    const { images, small } = (await res.json()) as { images?: string[]; small?: string[] }
+    return { images: new Set(images ?? []), small: new Set(small ?? []) }
   } catch {
-    return new Set()
+    return { images: new Set(), small: new Set() }
   }
 }
 
@@ -26,8 +28,8 @@ function loadImage(src: string) {
  * downscaled (low-res on mobile), smoothed, and dilated so near objects keep a
  * clean silhouette instead of dragging the background with them.
  */
-export async function loadDepthTexture(name: string, width: number): Promise<THREE.Texture> {
-  const im = await loadImage(`/depth/${name}.png`)
+export async function loadDepthTexture(name: string, width: number, small: boolean): Promise<THREE.Texture> {
+  const im = await loadImage(`/depth/${name}-depth${small ? '-sm' : ''}.png`)
   const w = width
   const h = Math.max(1, Math.round((im.height / im.width) * width))
   const canvas = document.createElement('canvas')
